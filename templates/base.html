@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UniSystem v16</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="logo">UNI SYSTEM</div>
+        <div class="clock" id="live-clock">--:--:--</div>
+        <button onclick="location.reload()" style="background: rgba(255,255,255,0.2); width: auto; padding: 5px 20px;">Logout</button>
+    </header>
+
+    {% block content %}{% endblock %}
+
+    <script>
+        setInterval(() => document.getElementById('live-clock').innerText = new Date().toLocaleString(), 1000);
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
