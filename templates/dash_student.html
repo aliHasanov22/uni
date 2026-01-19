@@ -1,28 +1,105 @@
-<div id="student-view" class="container hidden">
-    <div class="card">
-        <h2>My Profile</h2>
-        <div class="grid-2 profile-row">
-            <div>
-                <p>Name: <b id="stu-name"></b></p>
-                <p>ID: <b id="stu-id"></b></p>
-                <p>Class: <b id="stu-class"></b></p>
-            </div>
-            <div>
-                <p>Nationality: <b id="stu-nat"></b></p>
-                <p>DOB: <b id="stu-dob"></b></p>
-                <p>Address: <b id="stu-addr"></b></p>
+<div id="student-view" class="dashboard-container hidden">
+    <div class="sidebar">
+        <button onclick="showSection('sec-profile')" class="active">Profile</button>
+        <button onclick="showSection('sec-schedule')">Schedule</button>
+        <button onclick="showSection('sec-marks')">My Marks</button>
+        <button onclick="showSection('sec-exams')">Exam Results</button>
+        <button onclick="showSection('sec-plan')">Personal Edu Plan</button>
+    </div>
+
+    <div class="content-area">
+        
+        <div id="sec-profile" class="section active">
+            <div class="card">
+                <h2>My Profile</h2>
+                <div class="grid-2">
+                    <div>
+                        <p><strong>Name:</strong> <span id="stu-name"></span></p>
+                        <p><strong>Student ID:</strong> <span id="stu-id"></span></p>
+                        <p><strong>Class:</strong> <span id="stu-class"></span></p>
+                    </div>
+                    <div>
+                        <p><strong>Nationality:</strong> <span id="stu-nat"></span></p>
+                        <p><strong>Date of Birth:</strong> <span id="stu-dob"></span></p>
+                        <p><strong>Address:</strong> <span id="stu-addr"></span></p>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="card">
-        <h2>Transcript</h2>
-        <table>
-            <thead><tr><th>Subject</th><th>Missed / Limit</th><th>Sem Score</th><th>Exam</th><th>Status</th></tr></thead>
-            <tbody id="stu-table"></tbody>
-        </table>
-    </div>
-    <div class="card">
-        <h2>Schedule</h2>
-        <div id="stu-schedule"></div>
+
+        <div id="sec-schedule" class="section">
+            <div class="card">
+                <h2>Weekly Schedule</h2>
+                <div id="stu-schedule-list"></div>
+            </div>
+        </div>
+
+        <div id="sec-marks" class="section">
+            <div class="card">
+                <h2>Academic Marks</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Workload</th>
+                            <th>Absence</th>
+                            <th>Att. Score</th>
+                            <th>Freelance</th>
+                            <th>Acad. Score</th>
+                            <th>Sem Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stu-marks-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="sec-exams" class="section">
+            <div class="card">
+                <h2>Final Exam Results</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Semester Score</th>
+                            <th>Final Exam</th>
+                            <th>Total Score</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stu-exam-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="sec-plan" class="section">
+            <div class="card">
+                <h2>Personal Education Plan</h2>
+                <table style="border-left: 4px solid var(--primary);">
+                    <thead>
+                        <tr>
+                            <th>Object (Subject) Name</th>
+                            <th>Teacher</th>
+                            <th>Workload (Hours)</th>
+                            <th>Credits</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stu-plan-table"></tbody>
+                </table>
+            </div>
+        </div>
+
     </div>
 </div>
+
+<script>
+    function showSection(id) {
+        // Hide all sections
+        document.querySelectorAll('.section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.sidebar button').forEach(el => el.classList.remove('active'));
+        
+        // Show target
+        document.getElementById(id).classList.add('active');
+        event.target.classList.add('active');
+    }
+</script>
