@@ -1,0 +1,26 @@
+<div id="teacher-view" class="container hidden">
+    <div class="card">
+        <h2>Class Grading</h2>
+        <div class="grid-2">
+            <select id="teach-subj"><option>Select Subject</option></select>
+            <select id="teach-stu"><option>Select Student</option></select>
+        </div>
+        <div style="background: var(--light); padding: 20px; border-radius: 8px; margin-top: 20px;">
+            <h3>Grading Actions</h3>
+            <button class="btn-danger" onclick="teacherAction('absence')">Mark Absent (-2 Hours)</button>
+            <div class="grid-2">
+                <input type="number" id="grade-val" placeholder="Mark (0-10)">
+                <button onclick="teacherAction('mark')">Add Mark</button>
+            </div>
+            <div class="grid-2">
+                <input type="number" id="free-val" placeholder="Score (0-10)">
+                <button class="btn-sec" onclick="teacherAction('freelance')">Set Freelance</button>
+            </div>
+            <div class="grid-2">
+                <input type="number" id="exam-val" placeholder="Score (0-50)">
+                <button style="background: var(--dark);" onclick="teacherAction('exam')">Set Final Exam</button>
+            </div>
+            <div id="grade-msg" style="margin-top:10px; font-weight:bold; color:var(--primary);"></div>
+        </div>
+    </div>
+</div>
