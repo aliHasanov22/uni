@@ -1,35 +1,36 @@
-:root {
-    --primary: #0056b3; --dark: #002a5c; --light: #e3f2fd;
-    --bg: #f8f9fa; --white: #ffffff; --red: #dc3545; --green: #28a745;
-}
-body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin: 0; color: #333; }
+:root { --primary: #0056b3; --dark: #002a5c; --light: #e3f2fd; --bg: #f8f9fa; --white: #fff; --red: #dc3545; --green: #28a745; }
+body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin: 0; color: #333; height: 100vh; display: flex; flex-direction: column; }
 
 /* HEADER */
-header { background: linear-gradient(135deg, var(--dark), var(--primary)); color: var(--white); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+header { background: linear-gradient(135deg, var(--dark), var(--primary)); color: var(--white); padding: 15px 30px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); z-index: 100; }
 .logo { font-size: 1.4rem; font-weight: bold; letter-spacing: 1px; }
-.clock { font-family: monospace; background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 4px; }
 
-/* LAYOUT */
-.container { max-width: 1100px; margin: 30px auto; padding: 0 20px; }
-.login-container { height: 80vh; display: flex; justify-content: center; align-items: center; }
+/* LOGIN */
+.login-container { height: 100%; display: flex; justify-content: center; align-items: center; }
 .login-box { background: var(--white); padding: 40px; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); width: 350px; text-align: center; }
+
+/* DASHBOARD LAYOUT */
+.dashboard-container { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 250px; background: var(--white); border-right: 1px solid #ddd; display: flex; flex-direction: column; padding-top: 20px; }
+.sidebar button { text-align: left; padding: 15px 25px; background: transparent; border: none; color: #555; cursor: pointer; border-left: 4px solid transparent; width: 100%; border-radius: 0; margin: 0; }
+.sidebar button:hover, .sidebar button.active { background: var(--light); color: var(--primary); border-left-color: var(--primary); }
+.content-area { flex: 1; padding: 30px; overflow-y: auto; }
+
+/* SECTIONS */
+.section { display: none; animation: fadeIn 0.3s; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+/* CARDS & TABLES */
 .card { background: var(--white); padding: 25px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 25px; }
-
-/* ELEMENTS */
 h2 { color: var(--primary); margin-top: 0; border-bottom: 2px solid var(--light); padding-bottom: 10px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-.grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
-input, select, button { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ced4da; border-radius: 5px; box-sizing: border-box; }
-button { background: var(--primary); color: white; border: none; font-weight: 600; cursor: pointer; }
-button:hover { background: var(--dark); }
-button.btn-danger { background: var(--red); }
-button.btn-sec { background: #17a2b8; }
-.hidden { display: none !important; }
-
-/* TABLES */
-table { width: 100%; border-collapse: collapse; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
 th { background: var(--light); color: var(--dark); padding: 12px; text-align: left; }
 td { padding: 12px; border-bottom: 1px solid #eee; }
 .badge { padding: 5px 10px; border-radius: 20px; color: white; font-size: 0.85rem; font-weight: bold; }
-.profile-row p { margin: 8px 0; border-bottom: 1px solid #f4f4f4; padding-bottom: 5px; }
-.profile-row b { color: var(--primary); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.hidden { display: none !important; }
+
+/* FORM ELEMENTS */
+input, select { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ced4da; border-radius: 5px; box-sizing: border-box; }
+.btn-primary { background: var(--primary); color: white; padding: 10px; border: none; border-radius: 5px; cursor: pointer; width: 100%; }
