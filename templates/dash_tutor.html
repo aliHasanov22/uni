@@ -1,25 +1,45 @@
 <div id="tutor-view" class="container hidden">
+    
     <div class="card">
-        <h2>1. Management (Assign & Workload)</h2>
+        <h2>1. Subject Management</h2>
+        
         <div class="grid-2">
-            <div><label>Subject</label><select id="tutor-subj"></select></div>
-            <div><label>Assign Teacher</label><select id="tutor-teacher-list"></select></div>
+            <div>
+                <label>Select Subject</label>
+                <select id="tutor-subj"></select>
+            </div>
+            <div>
+                <label>Assign Teacher</label>
+                <select id="tutor-teacher-list"></select>
+            </div>
         </div>
-        <button class="btn-sec" onclick="tutorAssign()">Assign Teacher</button>
-        <hr style="border-top:1px solid #eee; margin: 20px 0;">
+        <button class="btn-primary" onclick="tutorAssign()">Assign Teacher</button>
+        
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+        
         <div class="grid-2">
-            <input type="number" id="tutor-hours" placeholder="Total Hours (e.g. 90)">
-            <button onclick="tutorWorkload()">Update Workload</button>
+            <div>
+                <label>Workload (Total Hours)</label>
+                <input type="number" id="tutor-hours" placeholder="e.g. 90">
+                <button class="btn-primary" onclick="tutorWorkload()">Set Hours</button>
+            </div>
+            <div>
+                <label>Subject Credits</label>
+                <input type="number" id="tutor-credits" placeholder="e.g. 4">
+                <button class="btn-sec" onclick="tutorCredits()">Set Credits</button>
+            </div>
         </div>
     </div>
+
     <div class="card">
-        <h2>2. Manage Schedule</h2>
+        <h2>2. Manage Weekly Schedule</h2>
         <div class="grid-4">
-            <input type="text" id="sch-day" placeholder="Day">
-            <input type="text" id="sch-time" placeholder="Time">
-            <input type="text" id="sch-class" placeholder="Class">
-            <input type="text" id="sch-type" placeholder="Type">
+            <input type="text" id="sch-day" placeholder="Day (e.g. Monday)">
+            <input type="text" id="sch-time" placeholder="Time (e.g. 09:00)">
+            <input type="text" id="sch-class" placeholder="Class (e.g. 1A)">
+            <input type="text" id="sch-type" placeholder="Type (Lab/Lecture)">
         </div>
-        <button onclick="tutorSchedule()">Add Class</button>
+        <button class="btn-primary" onclick="tutorSchedule()">Add Class to Schedule</button>
     </div>
+
 </div>
