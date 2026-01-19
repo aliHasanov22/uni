@@ -1,0 +1,25 @@
+<div id="tutor-view" class="container hidden">
+    <div class="card">
+        <h2>1. Management (Assign & Workload)</h2>
+        <div class="grid-2">
+            <div><label>Subject</label><select id="tutor-subj"></select></div>
+            <div><label>Assign Teacher</label><select id="tutor-teacher-list"></select></div>
+        </div>
+        <button class="btn-sec" onclick="tutorAssign()">Assign Teacher</button>
+        <hr style="border-top:1px solid #eee; margin: 20px 0;">
+        <div class="grid-2">
+            <input type="number" id="tutor-hours" placeholder="Total Hours (e.g. 90)">
+            <button onclick="tutorWorkload()">Update Workload</button>
+        </div>
+    </div>
+    <div class="card">
+        <h2>2. Manage Schedule</h2>
+        <div class="grid-4">
+            <input type="text" id="sch-day" placeholder="Day">
+            <input type="text" id="sch-time" placeholder="Time">
+            <input type="text" id="sch-class" placeholder="Class">
+            <input type="text" id="sch-type" placeholder="Type">
+        </div>
+        <button onclick="tutorSchedule()">Add Class</button>
+    </div>
+</div>
