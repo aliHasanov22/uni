@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>University eJournal Final</title>
+    <style>
+        :root { --blue: #004aad; --dark: #00285e; --light: #e6f0fa; --white: #fff; --red: #e74c3c; --green: #2ecc71; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f6f9; margin: 0; display: flex; flex-direction: column; min-height: 100vh; }
+        
+        /* HEADER */
+        header { background: var(--blue); color: var(--white); padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .logo { font-size: 1.5rem; font-weight: bold; }
+        .clock { font-family: monospace; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 4px; }
+        
+        /* LAYOUT */
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; flex: 1; }
+        .card { background: var(--white); padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .hidden { display: none !important; }
+        
+        /* UI ELEMENTS */
+        input, select, button { padding: 10px; margin: 5px 0; border-radius: 4px; border: 1px solid #ddd; width: 100%; box-sizing: border-box; }
+        button { background: var(--blue); color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: var(--dark); }
+        button.danger { background: var(--red); }
+        button.secondary { background: #3498db; }
+        
+        /* TABLES */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background: var(--light); color: var(--dark); text-align: left; padding: 10px; }
+        td { padding: 10px; border-bottom: 1px solid #eee; }
+        
+        /* BADGES */
+        .badge { padding: 4px 8px; border-radius: 12px; color: white; font-size: 0.8rem; }
+        .b-pass { background: var(--green); }
+        .b-fail { background: var(--red); }
+        .b-wait { background: #f39c12; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">UniSystem Final</div>
+        <div class="clock" id="live-clock">--:--:--</div>
+        <button onclick="location.reload()" style="width: auto; padding: 5px 15px; background: rgba(255,255,255,0.2);">Logout</button>
+    </header>
+
+    <div class="container">
+        
+        <div id="login-view" class="card" style="max-width: 400px; margin: 50px auto; text-align: center;">
+            <h2 style="color: var(--blue);">Login</h2>
+            <input type="text" id="u" placeholder="Username">
+            <input type="password" id="p" placeholder="Password">
+            <button onclick="login()">Sign In</button>
+            <p style="font-size: 0.8rem; color: #888; margin-top: 15px;">
+                Try: <b>student</b> / <b>123</b> <br> or <b>tutor</b> / <b>123</b>
+            </p>
+        </div>
+
+        <div id="student-view" class="hidden">
+            <div class="card">
+                <h2>Student Profile</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr;">
+                    <p>Name: <b id="stu-name"></b></p>
+                    <p>ID: <b id="stu-id"></b></p>
+                    <p>Class: <b id="stu-class"></b></p>
+                    <p>Address: <b id="stu-addr"></b></p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3>Academic Transcript</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Absence (Limit)</th>
+                            <th>Sem Score</th>
+                            <th>Exam</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transcript-body"></tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>Weekly Schedule</h3>
+                <div id="schedule-list"></div>
+            </div>
+        </div>
+
+        <div id="tutor-view" class="hidden">
+            
+            <div class="card">
+                <h2>1. Grading & Attendance</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="text" id="t-stu-user" placeholder="Target Student (e.g. student)">
+                    <select id="t-subj"></select>
+                </div>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+                
+                <button class="danger" onclick="tutorAction('absence')">Mark Absent (-2 Hours)</button>
+                
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="grade-val" placeholder="Daily Mark (0-10)">
+                    <button onclick="tutorAction('grade')">Add Mark</button>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="free-val" placeholder="Freelance (0-10)">
+                    <button class="secondary" onclick="tutorAction('freelance')">Set Freelance</button>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="exam-val" placeholder="Final Exam (0-50)">
+                    <button style="background: var(--dark);" onclick="tutorAction('exam')">Set Final Exam</button>
+                </div>
+                <div id="action-result" style="margin-top: 10px; font-weight: bold; color: var(--blue);"></div>
+            </div>
+
+            <div class="card">
+                <h2>2. Management</h2>
+                
+                <h3>Update Subject Workload</h3>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="new-hours" placeholder="New Total Hours (e.g. 60)">
+                    <button onclick="updateWorkload()">Update Hours</button>
+                </div>
+                
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+
+                <h3>Add Schedule Event</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <input type="text" id="sch-day" placeholder="Day (Monday)">
+                    <input type="text" id="sch-time" placeholder="Time (09:00)">
+                    <input type="text" id="sch-class" placeholder="Class (Class A)">
+                    <input type="text" id="sch-type" placeholder="Type (Lab/Lecture)">
+                </div>
+                <button class="secondary" onclick="addToSchedule()">Add to Schedule</button>
+                <div id="manage-result" style="margin-top: 10px; color: var(--green);"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // CLOCK
+        setInterval(() => {
+            document.getElementById('live-clock').innerText = new Date().toLocaleString();
+        }, 1000);
+
+        // LOGIN
+        async function login() {
+            const u = document.getElementById('u').value;
+            const p = document.getElementById('p').value;
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: u, password: p})
+            });
+            const data = await res.json();
+            
+            if(data.status === 'ok') {
+                currentUser = u;
+                document.getElementById('login-view').classList.add('hidden');
+                
+                if(data.role === 'student') {
+                    document.getElementById('student-view').classList.remove('hidden');
+                    document.getElementById('stu-name').innerText = data.data.name;
+                    document.getElementById('stu-id').innerText = data.data.id;
+                    document.getElementById('stu-class').innerText = data.data.class;
+                    document.getElementById('stu-addr').innerText = data.data.address;
+                    loadDashboard();
+                } else {
+                    document.getElementById('tutor-view').classList.remove('hidden');
+                    loadDashboard(); // Load subjects for dropdown
+                }
+            } else {
+                alert("Login Failed");
+            }
+        }
+
+        async function loadDashboard() {
+            const res = await fetch('/api/dashboard', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: currentUser})
+            });
+            const data = await res.json();
+            
+            // IF TUTOR: Populate Subject Dropdown
+            const subSel = document.getElementById('t-subj');
+            if(subSel && data.subjects) {
+                subSel.innerHTML = Object.keys(data.subjects).map(s => 
+                    `<option value="${s}">${s} (${data.subjects[s].total_hours}h)</option>`
+                ).join('');
+            }
+
+            // IF STUDENT: Render Transcript & Schedule
+            const tbody = document.getElementById('transcript-body');
+            if(tbody) {
+                tbody.innerHTML = data.transcript.map(t => {
+                    let badge = 'b-wait';
+                    if(t.status === 'PASS') badge = 'b-pass';
+                    if(t.status.includes('FAIL') || t.status === 'BANNED') badge = 'b-fail';
+                    
+                    return `<tr>
+                        <td><strong>${t.subject}</strong></td>
+                        <td style="color:${t.is_banned ? 'red' : 'inherit'}">
+                            ${t.absent}h / ${t.limit}h
+                        </td>
+                        <td>${t.sem_score} / 50</td>
+                        <td>${t.exam !== null ? t.exam : '-'}</td>
+                        <td><span class="badge ${badge}">${t.status}</span></td>
+                    </tr>`;
+                }).join('');
+            }
+            
+            const list = document.getElementById('schedule-list');
+            if(list) {
+                list.innerHTML = data.schedule.map(e => 
+                    `<div style="padding:10px; border-bottom:1px solid #eee;">
+                        <strong>${e.day} ${e.time}</strong>: ${e.subject} (${e.type})
+                     </div>`
+                ).join('');
+            }
+        }
+
+        // TUTOR: GRADING
+        async function tutorAction(type) {
+            const stu = document.getElementById('t-stu-user').value;
+            const subj = document.getElementById('t-subj').value;
+            let val = 0;
+            
+            if(type === 'grade') val = document.getElementById('grade-val').value;
+            if(type === 'freelance') val = document.getElementById('free-val').value;
+            if(type === 'exam') val = document.getElementById('exam-val').value;
+            
+            const res = await fetch('/api/tutor/update', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: type, student: stu, subject: subj, value: val })
+            });
+            const data = await res.json();
+            
+            if(data.status === 'ok') {
+                const s = data.new_stat;
+                document.getElementById('action-result').innerText = 
+                    `Updated! Status: ${s.status} | Total: ${s.total}`;
+            }
+        }
+
+        // TUTOR: MANAGEMENT
+        async function updateWorkload() {
+            const subj = document.getElementById('t-subj').value;
+            const h = document.getElementById('new-hours').value;
+            const res = await fetch('/api/tutor/settings', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ action: 'workload', subject: subj, hours: h })
+            });
+            const d = await res.json();
+            alert(d.msg);
+        }
+
+        async function addToSchedule() {
+            const body = {
+                action: 'schedule',
+                day: document.getElementById('sch-day').value,
+                time: document.getElementById('sch-time').value,
+                target_class: document.getElementById('sch-class').value,
+                type: document.getElementById('sch-type').value,
+                subject: document.getElementById('t-subj').value
+            };
+            const res = await fetch('/api/tutor/settings', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const d = await res.json();
+            alert(d.msg);
+        }
+    </script>
+</body>
+</html>
