@@ -9,29 +9,48 @@
 
 {% block scripts %}
 <script>
+    // --- GLOBAL STATE ---
     let currentUser = null;
     let currentRole = null;
 
+    // --- 1. LOGIN LOGIC ---
     async function login() {
         const u = document.getElementById('u').value;
         const p = document.getElementById('p').value;
-        const res = await fetch('/api/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p}) });
-        const data = await res.json();
         
+        // Call API
+        const res = await fetch('/api/login', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({username: u, password: p}) 
+        });
+        const data = await res.json();
+
         if(data.status === 'ok') {
             currentUser = u;
             currentRole = data.role;
+            // Hide Login, Load Dashboard
             document.getElementById('login-view').classList.add('hidden');
             loadDashboard();
-        } else { alert("Login Failed"); }
+        } else {
+            alert("Login Failed: Incorrect username or password");
+        }
     }
 
+    // --- 2. DASHBOARD LOADER ---
     async function loadDashboard() {
-        const res = await fetch('/api/dashboard', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: currentUser, role: currentRole}) });
+        const res = await fetch('/api/dashboard', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({username: currentUser, role: currentRole}) 
+        });
         const data = await res.json();
 
+        // === A. STUDENT VIEW LOGIC ===
         if(currentRole === 'student') {
             document.getElementById('student-view').classList.remove('hidden');
+            
+            // 1. Fill Profile Section
             document.getElementById('stu-name').innerText = data.profile.name;
             document.getElementById('stu-id').innerText = data.profile.id;
             document.getElementById('stu-class').innerText = data.profile.class;
@@ -39,41 +58,174 @@
             document.getElementById('stu-dob').innerText = data.profile.dob;
             document.getElementById('stu-addr').innerText = data.profile.address;
 
-            document.getElementById('stu-table').innerHTML = data.transcript.map(t => {
-                let bg = t.is_banned ? 'var(--red)' : (t.status==='PASS' ? 'var(--green)' : '#f39c12');
-                return `<tr><td>${t.subject}</td><td style="color:${t.is_banned?'red':'inherit'}">${t.absent}h / ${t.limit}h</td><td>${t.sem_score}</td><td>${t.exam||'-'}</td><td><span class="badge" style="background:${bg}">${t.status}</span></td></tr>`;
+            // 2. Fill Marks Table (Attendance & Academic)
+            document.getElementById('stu-marks-table').innerHTML = data.transcript.map(t => `
+                <tr>
+                    <td><b>${t.subject}</b></td>
+                    <td>${t.workload}h</td>
+                    <td style="color:${t.is_banned ? 'var(--red)' : 'inherit'}">
+                        ${t.absent}h <small>(Max ${t.limit}h)</small>
+                    </td>
+                    <td>${t.att_score}</td>
+                    <td>${t.freelance}</td>
+                    <td>${t.acad_score}</td>
+                    <td><b>${t.sem_score}</b></td>
+                </tr>
+            `).join('');
+
+            // 3. Fill Exams Table (Pass/Fail Status)
+            document.getElementById('stu-exam-table').innerHTML = data.transcript.map(t => {
+                // Determine badge color
+                let badgeColor = '#f39c12'; // Default Orange (Ongoing)
+                if(t.is_banned) badgeColor = 'var(--red)';
+                else if(t.status === 'PASS') badgeColor = 'var(--green)';
+                else if(t.status.includes('FAIL')) badgeColor = 'var(--red)';
+
+                return `<tr>
+                    <td><b>${t.subject}</b></td>
+                    <td>${t.sem_score}</td>
+                    <td>${t.exam !== null ? t.exam : '-'}</td>
+                    <td>${t.total}</td>
+                    <td><span class="badge" style="background:${badgeColor}">${t.status}</span></td>
+                </tr>`;
             }).join('');
-            document.getElementById('stu-schedule').innerHTML = data.schedule.map(s => `<div><b>${s.day} ${s.time}</b>: ${s.subject} (${s.type})</div>`).join('');
+
+            // 4. Fill Personal Education Plan (Credits)
+            document.getElementById('stu-plan-table').innerHTML = data.edu_plan.map(p => `
+                <tr>
+                    <td><b>${p.subject}</b></td>
+                    <td>${p.teacher}</td>
+                    <td>${p.workload} Hours</td>
+                    <td><span class="badge" style="background:#6c757d">${p.credits} Credits</span></td>
+                </tr>
+            `).join('');
+
+            // 5. Fill Schedule
+            document.getElementById('stu-schedule-list').innerHTML = data.schedule.map(s => `
+                <div style="padding: 15px; border-bottom: 1px solid #eee; display:flex; justify-content:space-between;">
+                    <div>
+                        <span style="font-size:1.1rem; color:var(--primary); font-weight:bold;">${s.day}</span>
+                        <span style="margin-left:10px; font-weight:bold;">${s.time}</span>
+                    </div>
+                    <div style="text-align:right;">
+                        <div>${s.subject} (${s.type})</div>
+                        <div style="font-size:0.85rem; color:#666;">${s.location}</div>
+                    </div>
+                </div>
+            `).join('');
         
+        // === B. TUTOR VIEW LOGIC ===
         } else if(currentRole === 'tutor') {
             document.getElementById('tutor-view').classList.remove('hidden');
+            
+            // Fill Dropdowns
             const subs = Object.keys(data.subjects);
-            document.getElementById('tutor-subj').innerHTML = subs.map(s => `<option value="${s}">${s} (Teacher: ${data.subjects[s].teacher})</option>`).join('');
-            document.getElementById('tutor-teacher-list').innerHTML = data.teachers.map(t => `<option value="${t}">${t}</option>`).join('');
+            document.getElementById('tutor-subj').innerHTML = subs.map(s => 
+                `<option value="${s}">${s} (Teacher: ${data.subjects[s].teacher})</option>`
+            ).join('');
+            
+            document.getElementById('tutor-teacher-list').innerHTML = data.teachers.map(t => 
+                `<option value="${t}">${t}</option>`
+            ).join('');
         
+        // === C. TEACHER VIEW LOGIC ===
         } else if(currentRole === 'teacher') {
             document.getElementById('teacher-view').classList.remove('hidden');
+            
             const subs = Object.keys(data.subjects);
-            document.getElementById('teach-subj').innerHTML = subs.map(s => `<option value="${s}">${s}</option>`).join('');
-            document.getElementById('teach-stu').innerHTML = data.students.map(s => `<option value="${s}">${s}</option>`).join('');
+            // Alert if no subjects
+            if(subs.length === 0) {
+                alert("You have no assigned subjects.");
+            }
+            
+            document.getElementById('teach-subj').innerHTML = subs.map(s => 
+                `<option value="${s}">${s}</option>`
+            ).join('');
+            
+            document.getElementById('teach-stu').innerHTML = data.students.map(s => 
+                `<option value="${s}">${s}</option>`
+            ).join('');
         }
     }
 
-    // Helpers
-    function val(id) { return document.getElementById(id).value; }
-    async function post(url, body) {
-        const r = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body) });
-        return await r.json();
+    // --- 3. TUTOR ACTIONS (Manager) ---
+    async function tutorAssign() { 
+        await post('/api/tutor/manage', {
+            action: 'assign_teacher', 
+            subject: val('tutor-subj'), 
+            teacher: val('tutor-teacher-list')
+        }); 
+        alert("Teacher Assigned Successfully"); 
+        loadDashboard(); // Refresh to show new assignment
     }
 
-    // Actions
-    async function tutorAssign() { await post('/api/tutor/manage', {action:'assign_teacher', subject:val('tutor-subj'), teacher:val('tutor-teacher-list')}); alert("Assigned"); }
-    async function tutorWorkload() { await post('/api/tutor/manage', {action:'set_workload', subject:val('tutor-subj'), hours:val('tutor-hours')}); alert("Updated"); }
-    async function tutorSchedule() { await post('/api/tutor/manage', {action:'add_schedule', subject:val('tutor-subj'), day:val('sch-day'), time:val('sch-time'), class:val('sch-class'), type:val('sch-type')}); alert("Added"); }
+    async function tutorWorkload() { 
+        await post('/api/tutor/manage', {
+            action: 'set_workload', 
+            subject: val('tutor-subj'), 
+            hours: val('tutor-hours')
+        }); 
+        alert("Workload Updated"); 
+    }
 
+    async function tutorCredits() { 
+        await post('/api/tutor/manage', {
+            action: 'set_credits', 
+            subject: val('tutor-subj'), 
+            credits: val('tutor-credits')
+        }); 
+        alert("Credits Updated"); 
+    }
+
+    async function tutorSchedule() { 
+        await post('/api/tutor/manage', {
+            action: 'add_schedule', 
+            subject: val('tutor-subj'), 
+            day: val('sch-day'), 
+            time: val('sch-time'), 
+            class: val('sch-class'), 
+            type: val('sch-type')
+        }); 
+        alert("Class Added to Schedule"); 
+    }
+
+    // --- 4. TEACHER ACTIONS (Grader) ---
     async function teacherAction(act) {
-        const d = await post('/api/teacher/grade', {student:val('teach-stu'), subject:val('teach-subj'), action:act, value: (act==='absence'?0:val(act==='mark'?'grade-val':(act==='freelance'?'free-val':'exam-val')))});
-        document.getElementById('grade-msg').innerText = `Status: ${d.stats.status} | Total: ${d.stats.total}`;
+        // Determine value based on action type
+        let value = 0;
+        if (act === 'mark') value = val('grade-val');
+        else if (act === 'freelance') value = val('free-val');
+        else if (act === 'exam') value = val('exam-val');
+        else if (act === 'absence') value = 0; // Absence doesn't need input value
+
+        const response = await post('/api/teacher/grade', {
+            student: val('teach-stu'), 
+            subject: val('teach-subj'), 
+            action: act, 
+            value: value
+        });
+        
+        // Show feedback
+        const stats = response.stats;
+        document.getElementById('grade-msg').innerHTML = `
+            Success! <br>
+            Current Status: <b>${stats.status}</b> <br>
+            Total Score: <b>${stats.total}</b>
+        `;
+    }
+
+    // --- HELPERS ---
+    function val(id) { 
+        return document.getElementById(id).value; 
+    }
+
+    async function post(url, body) {
+        const r = await fetch(url, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(body) 
+        });
+        return await r.json();
     }
 </script>
 {% endblock %}
