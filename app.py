@@ -1,194 +1,312 @@
-import json
 import os
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
-FILES = {
-    "users": "users.json",
-    "subjects": "subjects.json",
-    "grades": "grades.json",
-    "schedule": "schedule.json"
-}
+# --- SQL CONFIGURATION ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'uni.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
 LESSON_DURATION = 2.0
 
-# --- DATA MANAGER ---
-def load_json(key):
-    if not os.path.exists(FILES[key]):
-        # DEFAULTS
-        if key == "users": return {
-            "admin": {"password": "123", "role": "admin", "name": "Super Admin"},
-            "student": {
-                "password": "123", "role": "student", "name": "Alice Aliyeva", 
-                "id": "S2024001", "class": "1A", 
-                "address": "Baku, Nizami St. 10", "nationality": "Azerbaijani", "dob": "2004-05-20"
-            },
-            "tutor": {"password": "123", "role": "tutor", "name": "Head Tutor"},
-            "teacher": {"password": "123", "role": "teacher", "name": "Mr. Physics"}
-        }
-        if key == "subjects": return {
-            "Physics": {"total_hours": 90, "credits": 4, "teacher": "teacher"},
-            "Math": {"total_hours": 60, "credits": 3, "teacher": "Unassigned"}
-        }
-        return {} if key != "schedule" else {"events": []}
-    try:
-        with open(FILES[key], "r") as f: return json.load(f)
-    except: return {}
+# --- DATABASE MODELS ---
 
-def save_json(key, data):
-    with open(FILES[key], "w") as f: json.dump(data, f, indent=4)
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(80), nullable=False)
+    role = db.Column(db.String(20), nullable=False) # 'admin', 'student', 'tutor', 'teacher'
+    name = db.Column(db.String(100))
+    
+    # Student specific fields
+    student_id = db.Column(db.String(20))
+    class_name = db.Column(db.String(20))
+    address = db.Column(db.String(200))
+    nationality = db.Column(db.String(50))
+    dob = db.Column(db.String(20))
 
-# --- CALCULATION LOGIC ---
-def calculate_status(user, subj):
-    grades = load_json("grades")
-    subjects = load_json("subjects")
+class Subject(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    total_hours = db.Column(db.Float, default=90.0)
+    credits = db.Column(db.Integer, default=4)
+    teacher_name = db.Column(db.String(100), default="Unassigned") 
+
+class Enrollment(db.Model):
+    """Links a Student to a Subject and holds semester summaries"""
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'))
     
-    if subj not in subjects: return None
+    freelance_score = db.Column(db.Float, default=0.0)
+    final_exam_score = db.Column(db.Float, nullable=True) # None means not taken
     
-    # 1. Subject Info
-    sub_data = subjects[subj]
-    total_hours = float(sub_data.get("total_hours", 90))
-    limit_hours = total_hours * 0.25
-    credits = sub_data.get("credits", 0)
-    teacher = sub_data.get("teacher", "Unassigned")
+    # Relationships
+    student = db.relationship('User', backref='enrollments')
+    subject = db.relationship('Subject', backref='enrollments')
+    marks = db.relationship('Mark', backref='enrollment', lazy=True)
+
+class Mark(db.Model):
+    """Daily marks or absences"""
+    id = db.Column(db.Integer, primary_key=True)
+    enrollment_id = db.Column(db.Integer, db.ForeignKey('enrollment.id'))
+    date = db.Column(db.String(20))
+    score = db.Column(db.Float, default=0.0)
+    is_absence = db.Column(db.Boolean, default=False) # If True, calculate as absence
+
+class ScheduleEvent(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.String(20))
+    time = db.Column(db.String(10))
+    subject_name = db.Column(db.String(100))
+    event_type = db.Column(db.String(50)) # Lecture/Lab
+    target_class = db.Column(db.String(20))
+    location = db.Column(db.String(50))
+
+# --- INITIALIZATION ---
+def init_db():
+    with app.app_context():
+        db.create_all()
+        
+        # Create Defaults if empty
+        if not User.query.filter_by(username='student').first():
+            # Users
+            admin = User(username='admin', password='123', role='admin', name="Super Admin")
+            stu = User(username='student', password='123', role='student', name="Alice Aliyeva", 
+                       student_id="S2024001", class_name="1A", address="Baku, Nizami St", nationality="Azerbaijani", dob="2004-05-20")
+            tutor = User(username='tutor', password='123', role='tutor', name="Chief Tutor")
+            teacher = User(username='teacher', password='123', role='teacher', name="Mr. Physics")
+            
+            db.session.add_all([admin, stu, tutor, teacher])
+            
+            # Subjects
+            phy = Subject(name="Physics", total_hours=90, credits=4, teacher_name="teacher")
+            math = Subject(name="Math", total_hours=60, credits=3, teacher_name="Unassigned")
+            db.session.add_all([phy, math])
+            
+            db.session.commit()
+
+# --- HELPER: CALCULATE STATUS ---
+def calculate_status(student_obj, subject_obj):
+    # 1. Get Enrollment Record (Create if missing)
+    enrollment = Enrollment.query.filter_by(student_id=student_obj.id, subject_id=subject_obj.id).first()
     
-    # 2. Grades
-    record = grades.get(user, {}).get(subj, {})
-    sem = record.get("semester_data", {})
-    final_exam = record.get("final_exam_score", None)
-    absent = sem.get("absent_hours", 0)
+    if not enrollment:
+        # Create empty record for calculation
+        enrollment = Enrollment(student_id=student_obj.id, subject_id=subject_obj.id)
+        db.session.add(enrollment)
+        db.session.commit()
+
+    # 2. Workload Info
+    limit_hours = subject_obj.total_hours * 0.25
     
-    # 3. Scores
-    att_score = 10 * ((total_hours - absent) / total_hours) if total_hours > 0 else 10
+    # 3. Process Marks
+    absent_hours = 0
+    qb_count = 0
+    valid_scores = []
+    mark_history = []
+    
+    for m in enrollment.marks:
+        if m.is_absence:
+            absent_hours += LESSON_DURATION
+            qb_count += 1
+            mark_history.append(f"❌ Absent ({m.date})")
+        else:
+            valid_scores.append(m.score)
+            mark_history.append(f"✅ {m.score} ({m.date})")
+            
+    # 4. Scores
+    att_score = 10 * ((subject_obj.total_hours - absent_hours) / subject_obj.total_hours) if subject_obj.total_hours > 0 else 10
     att_score = max(0, att_score)
     
-    marks = [m for m in sem.get("midterms", []) if m > 0]
-    for d in sem.get("daily_marks", []): marks.append(d["score"])
-    acad_score = (sum(marks) / len(marks) * 3) if marks else 0
+    acad_score = (sum(valid_scores) / len(valid_scores) * 3) if valid_scores else 0
+    sem_total = att_score + enrollment.freelance_score + acad_score
     
-    sem_total = att_score + sem.get("freelance", 0) + acad_score
-    
-    # 4. Status
-    is_banned = absent >= limit_hours
+    # 5. Status Logic
+    is_banned = absent_hours >= limit_hours
     status = "ONGOING"
     final_total = sem_total
     
-    if is_banned: status = "BANNED"
-    elif final_exam is not None:
-        final_total += final_exam
-        if final_exam <= 16: status = "FAIL (Exam)"
+    if is_banned:
+        status = "BANNED"
+    elif enrollment.final_exam_score is not None:
+        final_total += enrollment.final_exam_score
+        if enrollment.final_exam_score <= 16: status = "FAIL (Exam)"
         elif final_total < 51: status = "FAIL (Total)"
         else: status = "PASS"
 
     return {
-        "subject": subj, "teacher": teacher, "credits": credits,
-        "workload": total_hours, "limit": limit_hours, "absent": absent,
-        "sem_score": round(sem_total, 2), "exam": final_exam,
-        "total": round(final_total, 2), "status": status, "is_banned": is_banned,
-        "freelance": sem.get("freelance", 0), "acad_score": round(acad_score, 2), "att_score": round(att_score, 2)
+        "subject": subject_obj.name,
+        "teacher": subject_obj.teacher_name,
+        "credits": subject_obj.credits,
+        "workload": subject_obj.total_hours,
+        "limit": limit_hours,
+        "absent": absent_hours,
+        "qb_count": qb_count,
+        "mark_history": mark_history,
+        "sem_score": round(sem_total, 2),
+        "exam": enrollment.final_exam_score,
+        "total": round(final_total, 2),
+        "status": status,
+        "is_banned": is_banned,
+        "freelance": enrollment.freelance_score,
+        "acad_score": round(acad_score, 2),
+        "att_score": round(att_score, 2)
     }
 
 # --- ROUTES ---
+
 @app.route('/')
-def index(): return render_template('index.html')
+def index():
+    return render_template('index.html')
 
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
-    users = load_json("users")
-    u = data.get('username')
-    if u in users and users[u]['password'] == data.get('password'):
-        return jsonify({"status": "ok", "role": users[u]['role'], "data": users[u]})
+    u = User.query.filter_by(username=data.get('username')).first()
+    
+    if u and u.password == data.get('password'):
+        # Convert SQL object to dict for JSON response
+        user_data = {
+            "username": u.username, "role": u.role, "name": u.name,
+            "id": u.student_id, "class": u.class_name, "address": u.address,
+            "nationality": u.nationality, "dob": u.dob
+        }
+        return jsonify({"status": "ok", "role": u.role, "data": user_data})
     return jsonify({"status": "error"})
 
 @app.route('/api/dashboard', methods=['POST'])
 def dashboard():
-    u = request.json.get('username')
+    u_name = request.json.get('username')
     role = request.json.get('role')
-    subjects = load_json("subjects")
-    schedule = load_json("schedule")
-    users = load_json("users")
+    
+    user = User.query.filter_by(username=u_name).first()
+    subjects = Subject.query.all()
+    events = ScheduleEvent.query.all()
+    
+    # Format schedule for JSON
+    schedule_list = [{"day":e.day, "time":e.time, "subject":e.subject_name, "type":e.event_type, "target_class":e.target_class, "location":e.location} for e in events]
     
     resp = {"role": role}
     
     if role == "student":
         transcript = []
-        for s in subjects:
-            stat = calculate_status(u, s)
-            if stat: transcript.append(stat)
-        
-        # Build the Personal Education Plan list
         edu_plan = []
-        for s, data in subjects.items():
+        
+        for s in subjects:
+            # 1. Transcript Data
+            stat = calculate_status(user, s)
+            transcript.append(stat)
+            
+            # 2. Edu Plan Data
             edu_plan.append({
-                "subject": s,
-                "teacher": data.get("teacher"),
-                "credits": data.get("credits", 0),
-                "workload": data.get("total_hours")
+                "subject": s.name, "teacher": s.teacher_name,
+                "credits": s.credits, "workload": s.total_hours
             })
-
+            
         resp["transcript"] = transcript
-        resp["schedule"] = schedule["events"]
+        resp["schedule"] = schedule_list
         resp["edu_plan"] = edu_plan
-        resp["profile"] = users[u]
+        # Profile Data
+        resp["profile"] = {
+            "name": user.name, "id": user.student_id, "class": user.class_name,
+            "address": user.address, "nationality": user.nationality, "dob": user.dob
+        }
         
     elif role == "tutor":
-        resp["subjects"] = subjects
-        resp["teachers"] = [k for k,v in users.items() if v["role"] == "teacher"]
+        # Dictionary of subjects for frontend dropdown
+        sub_dict = {s.name: {"teacher": s.teacher_name, "total_hours": s.total_hours} for s in subjects}
+        teachers = [u.username for u in User.query.filter_by(role='teacher').all()]
+        
+        resp["subjects"] = sub_dict
+        resp["teachers"] = teachers
         
     elif role == "teacher":
-        my_subs = {k:v for k,v in subjects.items() if v.get("teacher") == u}
+        # Only My Subjects
+        my_subs = {s.name: {} for s in subjects if s.teacher_name == u_name}
+        students = [u.username for u in User.query.filter_by(role='student').all()]
+        
         resp["subjects"] = my_subs
-        resp["students"] = [k for k,v in users.items() if v["role"] == "student"]
+        resp["students"] = students
         
     return jsonify(resp)
-
-# ... (Teacher/Tutor actions remain same, but added 'set_credits' to Tutor) ...
 
 @app.route('/api/tutor/manage', methods=['POST'])
 def tutor_manage():
     data = request.json
     action = data.get('action')
-    s = load_json("subjects")
+    subj_name = data.get('subject')
+    
+    # Get subject from DB (except for schedule add which might not need it linked strictly)
+    subj = Subject.query.filter_by(name=subj_name).first()
     
     if action == 'assign_teacher':
-        s[data.get('subject')]['teacher'] = data.get('teacher')
-    elif action == 'set_workload':
-        s[data.get('subject')]['total_hours'] = float(data.get('hours'))
-    elif action == 'set_credits':  # NEW FEATURE
-        s[data.get('subject')]['credits'] = int(data.get('credits'))
-    
-    save_json("subjects", s)
-    
-    if action == 'add_schedule':
-        sch = load_json("schedule")
-        sch["events"].append({
-            "day": data.get('day'), "time": data.get('time'), "subject": data.get('subject'),
-            "type": data.get('type'), "target_class": data.get('class'), "location": "Room 101"
-        })
-        save_json("schedule", sch)
+        subj.teacher_name = data.get('teacher')
         
+    elif action == 'set_workload':
+        subj.total_hours = float(data.get('hours'))
+        
+    elif action == 'set_credits':
+        subj.credits = int(data.get('credits'))
+        
+    elif action == 'add_schedule':
+        evt = ScheduleEvent(
+            day=data.get('day'), time=data.get('time'), subject_name=subj_name,
+            event_type=data.get('type'), target_class=data.get('class'), location="Room 101"
+        )
+        db.session.add(evt)
+    
+    db.session.commit()
     return jsonify({"status": "ok"})
 
 @app.route('/api/teacher/grade', methods=['POST'])
 def teacher_grade():
-    # (Same as before)
     data = request.json
-    stu, subj, action, val = data.get('student'), data.get('subject'), data.get('action'), data.get('value')
-    grades = load_json("grades")
-    if stu not in grades: grades[stu] = {}
-    if subj not in grades[stu]: grades[stu][subj] = {"semester_data": {"absent_hours": 0, "daily_marks":[], "midterms":[], "freelance":0}, "final_exam_score": None}
+    stu_name = data.get('student')
+    subj_name = data.get('subject')
+    action = data.get('action')
+    val = data.get('value')
     
-    rec = grades[stu][subj]["semester_data"]
-    if action == 'absence': rec["absent_hours"] += LESSON_DURATION; rec["daily_marks"].append({"date":"Web", "val":"q/b", "score":0})
-    elif action == 'mark': rec["daily_marks"].append({"date":"Web", "val":float(val), "score":float(val)})
-    elif action == 'freelance': rec["freelance"] = float(val)
-    elif action == 'exam': grades[stu][subj]["final_exam_score"] = float(val)
-    save_json("grades", grades)
-    return jsonify({"status": "ok", "stats": calculate_status(stu, subj)})
+    # 1. Get Objects
+    student = User.query.filter_by(username=stu_name).first()
+    subject = Subject.query.filter_by(name=subj_name).first()
+    
+    # 2. Get/Create Enrollment
+    enrollment = Enrollment.query.filter_by(student_id=student.id, subject_id=subject.id).first()
+    if not enrollment:
+        enrollment = Enrollment(student_id=student.id, subject_id=subject.id)
+        db.session.add(enrollment)
+        db.session.commit() # Commit to get ID
+        
+    # 3. Perform Action
+    today_str = datetime.now().strftime("%d/%m")
+    
+    if action == 'absence':
+        # Add a mark with is_absence=True
+        m = Mark(enrollment_id=enrollment.id, date=today_str, score=0, is_absence=True)
+        db.session.add(m)
+        
+    elif action == 'mark':
+        # Add a mark with score
+        m = Mark(enrollment_id=enrollment.id, date=today_str, score=float(val), is_absence=False)
+        db.session.add(m)
+        
+    elif action == 'freelance':
+        enrollment.freelance_score = float(val)
+        
+    elif action == 'exam':
+        enrollment.final_exam_score = float(val)
+        
+    db.session.commit()
+    
+    # Return new stats
+    return jsonify({"status": "ok", "stats": calculate_status(student, subject)})
 
 if __name__ == '__main__':
-    load_json("users") 
+    init_db() # Create tables
     app.run(debug=True, port=5000)
